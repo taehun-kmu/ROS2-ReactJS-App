@@ -1,11 +1,14 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "../App.css";
 import ROSLIB from "roslib";
-import { getSharedRos } from "../ros/rosConnection";
+import { getSharedRos, useRosConnection } from "../ros/rosConnection";
 import { detectOccupancyGridTopic } from "../ros/detectTopic";
 
 export default function MapOverlay({ open, onClose }) {
   const canvasRef = useRef(null);
+  const { status: rosStatus } = useRosConnection("ws://localhost:9090");
+  const [topicInfo, setTopicInfo] = useState({ name: "", type: "" });
+  const [fps, setFps] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -17,6 +20,8 @@ export default function MapOverlay({ open, onClose }) {
     let imageData = null; // reused ImageData buffer
     let lastW = 0;
     let lastH = 0;
+    let sampleCount = 0;
+    let sampleStart = performance.now();
 
     function mapValueToGray(v) {
       // nav_msgs/OccupancyGrid semantics:
@@ -79,15 +84,29 @@ export default function MapOverlay({ open, onClose }) {
       }
 
       ctx.putImageData(id, 0, 0);
+
+      // FPS sampling — count rendered frames over ~1 second window
+      sampleCount += 1;
+      const now = performance.now();
+      const elapsed = now - sampleStart;
+      if (elapsed >= 1000) {
+        const nextFps = (sampleCount * 1000) / (elapsed || 1);
+        setFps(Number.isFinite(nextFps) ? Math.round(nextFps * 10) / 10 : 0);
+        sampleCount = 0;
+        sampleStart = now;
+      }
     }
 
     async function start() {
       try {
+        setTopicInfo({ name: "(detecting)", type: "" });
         const detected = await detectOccupancyGridTopic(ros);
         if (!detected) {
           // No topic found within timeout; keep overlay open but no draw
+          setTopicInfo({ name: "(not found)", type: "" });
           return;
         }
+        setTopicInfo({ name: detected.name, type: detected.type });
         topic = new ROSLIB.Topic({
           ros,
           name: detected.name,
@@ -118,6 +137,8 @@ export default function MapOverlay({ open, onClose }) {
       }
       pendingMsg = null;
       imageData = null;
+      setFps(0);
+      setTopicInfo((prev) => prev.name || prev.type ? { name: prev.name, type: prev.type } : { name: "", type: "" });
     };
   }, [open]);
 
@@ -127,6 +148,19 @@ export default function MapOverlay({ open, onClose }) {
     <div className="map-overlay-root" role="dialog" aria-modal="true">
       <div className="map-overlay-header">
         <div className="map-overlay-title">Map Overlay</div>
+        <div className="map-overlay-meta" aria-live="polite">
+          <span className={`status-dot ${rosStatus === "connected" ? "ok" : "bad"}`} title={`ROS ${rosStatus}`}></span>
+          <span className="meta-item" title="ROS connection status">{rosStatus}</span>
+          <span className="meta-sep">|</span>
+          <span className="meta-item" title="Detected topic">
+            Topic: {topicInfo.name || "(n/a)"}
+          </span>
+          {topicInfo.type ? (
+            <span className="meta-item" title="Message type">({topicInfo.type})</span>
+          ) : null}
+          <span className="meta-sep">|</span>
+          <span className="meta-item" title="Approximate frames per second">FPS: {fps.toFixed(1)}</span>
+        </div>
         <button className="map-overlay-close" onClick={onClose} aria-label="Close overlay">
           ✕
         </button>
