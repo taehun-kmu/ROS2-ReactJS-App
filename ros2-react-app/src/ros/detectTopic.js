@@ -32,6 +32,30 @@ export function getTopicType(ros, topicName) {
   });
 }
 
+/**
+ * Get all topic names that match a given message type.
+ * Accepts ROS1 or ROS2 type string.
+ * @param {import('roslib').Ros} ros
+ * @param {string} typeName
+ * @returns {Promise<string[]>}
+ */
+export function getTopicsForType(ros, typeName) {
+  return new Promise((resolve, reject) => {
+    try {
+      ros.getTopicsForType(
+        typeName,
+        (topics) => {
+          if (Array.isArray(topics)) resolve(topics);
+          else resolve([]);
+        },
+        (message) => reject(new Error(typeof message === "string" ? message : "Unknown error"))
+      );
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 function withTimeout(promise, ms, label = "operation") {
   if (!(ms > 0)) return promise; // no timeout
   return new Promise((resolve, reject) => {
@@ -68,7 +92,7 @@ export async function detectOccupancyGridTopic(
   {
     candidates = ["/rtabmap/map", "/map", "/rtabmap/grid_map", "/rtabmap/proj_map"],
     typeName = "nav_msgs/OccupancyGrid",
-    timeoutMs = 3000,
+    timeoutMs = 5000,
   } = {}
 ) {
   if (!ros) throw new Error("detectOccupancyGridTopic: ros instance is required");
@@ -89,6 +113,24 @@ export async function detectOccupancyGridTopic(
     } catch (_e) {
       // Ignore errors for non-existent topics or rosapi unavailability; continue until timeout/deadline.
     }
+  }
+
+  // Fallback: query available topics by type (both ROS1 and ROS2-like type strings)
+  const remaining = Math.max(0, deadline - Date.now());
+  if (remaining === 0) return null;
+  try {
+    const [ros1Topics, ros2Topics] = await Promise.all([
+      withTimeout(getTopicsForType(ros, typeName), remaining, `getTopicsForType(${typeName})`),
+      withTimeout(getTopicsForType(ros, `nav_msgs/msg/OccupancyGrid`), remaining, `getTopicsForType(nav_msgs/msg/OccupancyGrid)`),
+    ]);
+    const all = Array.from(new Set([...(ros1Topics || []), ...(ros2Topics || [])]));
+    if (all.length > 0) {
+      const preferred = candidates.find((c) => all.includes(c));
+      const name = preferred || all[0];
+      return { name, type: `nav_msgs/msg/OccupancyGrid` };
+    }
+  } catch (_e) {
+    // ignore and return null
   }
 
   return null;
