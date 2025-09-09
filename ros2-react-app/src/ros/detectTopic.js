@@ -74,12 +74,15 @@ export async function detectOccupancyGridTopic(
   if (!ros) throw new Error("detectOccupancyGridTopic: ros instance is required");
   const deadline = Date.now() + (timeoutMs || 0);
 
+  // Normalize ROS2 type strings like "nav_msgs/msg/OccupancyGrid" to ROS1-style for comparison
+  const normalizeType = (s) => (typeof s === "string" ? s.replace("/msg/", "/") : s);
+
   for (const name of candidates) {
     const remaining = Math.max(0, deadline - Date.now());
     if (remaining === 0) return null;
     try {
       const type = await withTimeout(getTopicType(ros, name), remaining, `getTopicType(${name})`);
-      if (type === typeName) {
+      if (type === typeName || normalizeType(type) === typeName) {
         return { name, type };
       }
       // Non-matching type, continue
@@ -113,4 +116,3 @@ export async function detectTopicByType(ros, candidates, typeName, timeoutMs = 3
 // } else {
 //   console.log("No OccupancyGrid topic found");
 // }
-
