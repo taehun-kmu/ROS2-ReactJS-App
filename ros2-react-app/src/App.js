@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import ROSLIB from 'roslib';
+// ROS connection is managed via a reusable module with auto-reconnect.
+import { useRosConnection } from './ros/rosConnection';
 import './App.css';
 import remoteControlImg from './remote-control.png';
 import settingsImg from './settings.png';
@@ -9,8 +10,10 @@ import MapOverlay from './components/MapOverlay';
 import { isFeatureEnabled, setFeatureFlag } from './featureFlags';
 
 function App() {
-  const [connected, setConnected] = useState(false);
-  // Note: Keep connection object scoped within effect; no state needed here.
+  // Connection status is derived from the reusable connection hook
+  const { status: rosStatus } = useRosConnection('ws://localhost:9090');
+  const connected = rosStatus === 'connected';
+  // Note: Keep UI state separate from ROS connection logic.
   const [busyCommand, setBusyCommand] = useState(null);
   const [lastMessage, setLastMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -18,33 +21,9 @@ function App() {
   const [overlayOpen, setOverlayOpen] = useState(false);
 
   useEffect(() => {
-    const newRos = new ROSLIB.Ros({
-      url: 'ws://localhost:9090'
-    });
-
-    newRos.on('connection', () => {
-      console.log('Connected to websocket server.');
-      setConnected(true);
-    });
-
-    newRos.on('error', (error) => {
-      console.log('Error connecting to websocket server: ', error);
-      setConnected(false);
-    });
-
-    newRos.on('close', () => {
-      console.log('Connection to websocket server closed.');
-      setConnected(false);
-    });
-
-    // Keep reference in effect scope only
-
+    // Register unload handler for backend stop command
     window.addEventListener('beforeunload', stopSlamNav);
-
     return () => {
-      if (newRos) {
-        newRos.close();
-      }
       window.removeEventListener('beforeunload', stopSlamNav);
     };
   }, []);
