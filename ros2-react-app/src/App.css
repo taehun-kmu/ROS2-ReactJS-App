@@ -140,12 +140,21 @@ body {
   padding: 16px;
 }
 
-.map-overlay-placeholder {
+.map-canvas-container {
   background: #111827;
-  color: #9ca3af;
-  border: 1px dashed #374151;
+  border: 1px solid #374151;
   border-radius: 8px;
-  padding: 24px 32px;
+  padding: 8px;
+  max-width: 90vw;
+  max-height: 80vh;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.map-canvas {
+  display: block;
+  width: 100%;
+  height: auto; /* preserve aspect ratio while scaling to container width */
+  image-rendering: pixelated; /* crisp scaling for grid */
 }
 
 /* Small corner toggle for enabling the feature flag in dev */
