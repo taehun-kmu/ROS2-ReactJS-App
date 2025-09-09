@@ -42,6 +42,11 @@ app.post('/run-map-nav', (req, res) => {
   runCommand(command, res);
 });
 
+app.post('/stop-slam-nav', (req, res) => {
+  const command = `bash -c "source /opt/ros/humble/setup.bash && source ~/ros2_ws/install/setup.bash && echo 'Stopping SLAM/NAV'"`;
+  runCommand(command, res);
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
