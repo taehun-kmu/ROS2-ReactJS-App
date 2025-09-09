@@ -53,8 +53,18 @@ export default function MapOverlay({ open, onClose }) {
       if (!canvas) return;
       const container = canvas.parentElement;
       if (!container || !lastW || !lastH) return;
-      const cw = container.clientWidth || 0;
-      const ch = container.clientHeight || 0;
+      // Use content box size (clientWidth/Height include padding; subtract it)
+      let cw = container.clientWidth || 0;
+      let ch = container.clientHeight || 0;
+      try {
+        const cs = window.getComputedStyle(container);
+        const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        cw = Math.max(0, cw - padX);
+        ch = Math.max(0, ch - padY);
+      } catch (_e) {
+        // ignore; fall back to raw client sizes
+      }
       if (!cw || !ch) return;
       const scale = Math.min(cw / lastW, ch / lastH);
       const styleW = Math.max(1, Math.floor(lastW * scale));
