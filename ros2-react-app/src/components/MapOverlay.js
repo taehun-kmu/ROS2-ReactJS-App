@@ -149,25 +149,10 @@ export default function MapOverlay({ open, onClose }) {
 
     start();
     window.addEventListener("resize", sizeCanvasDisplay);
-    // Observe container size changes (e.g., responsive layout, devtools toggle)
-    let ro = null;
-    try {
-      const canvas = canvasRef.current;
-      const container = canvas ? canvas.parentElement : null;
-      if (container && "ResizeObserver" in window) {
-        ro = new ResizeObserver(() => sizeCanvasDisplay());
-        ro.observe(container);
-      }
-    } catch (_e) {
-      // ignore
-    }
+    // Note: We rely on window resize for now; container padding and max sizes keep aspect nicely.
 
     return () => {
       window.removeEventListener("resize", sizeCanvasDisplay);
-      if (ro) {
-        try { ro.disconnect(); } catch (_e) {}
-        ro = null;
-      }
       if (rafId) {
         window.cancelAnimationFrame(rafId);
         rafId = 0;
