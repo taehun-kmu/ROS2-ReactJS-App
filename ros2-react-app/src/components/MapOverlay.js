@@ -6,7 +6,7 @@ import { detectOccupancyGridTopic } from "../ros/detectTopic";
 
 export default function MapOverlay({ open, onClose }) {
   const canvasRef = useRef(null);
-  const { status: rosStatus } = useRosConnection("ws://localhost:9090");
+  const { status: rosStatus } = useRosConnection();
   const [topicInfo, setTopicInfo] = useState({ name: "", type: "" });
   const [fps, setFps] = useState(0);
 
@@ -22,6 +22,8 @@ export default function MapOverlay({ open, onClose }) {
     let lastH = 0;
     let sampleCount = 0;
     let sampleStart = performance.now();
+    let lastStyleW = 0;
+    let lastStyleH = 0;
 
     function mapValueToGray(v) {
       // nav_msgs/OccupancyGrid semantics:
@@ -44,6 +46,25 @@ export default function MapOverlay({ open, onClose }) {
         canvas.height = h;
       }
       return imageData;
+    }
+
+    function sizeCanvasDisplay() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const container = canvas.parentElement;
+      if (!container || !lastW || !lastH) return;
+      const cw = container.clientWidth || 0;
+      const ch = container.clientHeight || 0;
+      if (!cw || !ch) return;
+      const scale = Math.min(cw / lastW, ch / lastH);
+      const styleW = Math.max(1, Math.floor(lastW * scale));
+      const styleH = Math.max(1, Math.floor(lastH * scale));
+      if (styleW !== lastStyleW || styleH !== lastStyleH) {
+        canvas.style.width = `${styleW}px`;
+        canvas.style.height = `${styleH}px`;
+        lastStyleW = styleW;
+        lastStyleH = styleH;
+      }
     }
 
     function drawLatest() {
@@ -84,6 +105,8 @@ export default function MapOverlay({ open, onClose }) {
       }
 
       ctx.putImageData(id, 0, 0);
+      // Ensure the displayed size fills the container while preserving aspect ratio
+      sizeCanvasDisplay();
 
       // FPS sampling — count rendered frames over ~1 second window
       sampleCount += 1;
@@ -125,8 +148,10 @@ export default function MapOverlay({ open, onClose }) {
     }
 
     start();
+    window.addEventListener("resize", sizeCanvasDisplay);
 
     return () => {
+      window.removeEventListener("resize", sizeCanvasDisplay);
       if (rafId) {
         window.cancelAnimationFrame(rafId);
         rafId = 0;
