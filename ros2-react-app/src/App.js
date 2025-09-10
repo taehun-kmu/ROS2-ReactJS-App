@@ -11,7 +11,7 @@ import { isFeatureEnabled, setFeatureFlag } from './featureFlags';
 
 function App() {
   // Connection status is derived from the reusable connection hook
-  const { status: rosStatus } = useRosConnection('ws://localhost:9090');
+  const { status: rosStatus } = useRosConnection();
   const connected = rosStatus === 'connected';
   // Note: Keep UI state separate from ROS connection logic.
   const [busyCommand, setBusyCommand] = useState(null);
