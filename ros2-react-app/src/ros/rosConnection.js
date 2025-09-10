@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ROSLIB from "roslib";
 
-const DEFAULT_URL = "ws://localhost:9090";
+const DEFAULT_URL = (typeof window !== "undefined" ? (window.location.protocol === "https:" ? "wss://" : "ws://") + (window.location.hostname || "localhost") : "ws://localhost") + ":9090";
 const MAX_BACKOFF_MS = 8000; // cap backoff
 const INITIAL_BACKOFF_MS = 500;
 
